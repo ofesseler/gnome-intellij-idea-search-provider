@@ -6,3 +6,5 @@
 
 # The packed shell extension
 *.shell-extension.zip
+.idea/
+
