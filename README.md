@@ -4,7 +4,7 @@ A Gnome shell extension to find recent IntelliJ IDEA projects in search.
 
 ## Requirements
 
-- Gnome shell 3.34 or newer
+- Gnome shell 3.36 or newer
 - Python 3.6 or newer (as `python3` in `$PATH`)
 
 ## Installation
@@ -49,7 +49,7 @@ Stand on the shoulders of giants and you can even write Javascript for Gnome.
 
 ## License
 
-Copyright 2019 Sebastian Wiesner <sebastian@swsnr.de>
+Copyright Sebastian Wiesner <sebastian@swsnr.de>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

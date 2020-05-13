@@ -1,4 +1,4 @@
-// Copyright 2019 Sebastian Wiesner <sebastian@swsnr.de>
+// Copyright Sebastian Wiesner <sebastian@swsnr.de>
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const Gio = imports.gi.Gio;
-const St = imports.gi.St;
+import Gio = imports.gi.Gio;
+import St = imports.gi.St;
 
-const Main = imports.ui.main;
+import Main = imports.ui.main;
+import ExtensionUtils = imports.misc.extensionUtils;
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-const Self = imports.misc.extensionUtils.getCurrentExtension()!;
+const Self = ExtensionUtils.getCurrentExtension()!;
 
 /**
  * Log a message from this extension, with prefix.
@@ -38,7 +39,7 @@ const execCommand = (argv: ReadonlyArray<string>): Promise<string> =>
       argv: argv,
       // There are also other types of flags for merging stdout/stderr,
       // redirecting to /dev/null or inheriting the parent's pipes
-      flags: Gio.SubprocessFlags.STDOUT_PIPE
+      flags: Gio.SubprocessFlags.STDOUT_PIPE,
     });
 
     // Classes that implement GInitable must be initialized before use, but
@@ -61,10 +62,8 @@ const execCommand = (argv: ReadonlyArray<string>): Promise<string> =>
 
 /**
  * Find the IDEA App.
- *
- * Currently only supports IDEA Ultimate installed from Snap Store.
  */
-const findIDEA = (): imports.gi.Gio.DesktopAppInfo | null => {
+const findIDEA = (): Gio.DesktopAppInfo | null => {
   const candidates = [
     // Arch Linux AUR package
     "jetbrains-idea.desktop",
@@ -74,6 +73,7 @@ const findIDEA = (): imports.gi.Gio.DesktopAppInfo | null => {
     "com.jetbrains.IntelliJ-IDEA-Ultimate.desktop",
     // Snap Pycharm Professional
     "pycharm-professional_pycharm-professional.desktop"
+
   ];
   for (const desktopId of candidates) {
     const app = Gio.DesktopAppInfo.new(desktopId);
@@ -85,6 +85,9 @@ const findIDEA = (): imports.gi.Gio.DesktopAppInfo | null => {
   return null;
 };
 
+/**
+ * An project.
+ */
 interface Project {
   /**
    * The project identifier.
@@ -107,12 +110,7 @@ interface Project {
   readonly abspath: string;
 }
 
-/**
- * A map of project IDs to projects.
- */
-interface ProjectMap {
-  readonly [key: string]: Project;
-}
+type ProjectMap = Map<string, Project>;
 
 /**
  * Lookup projects by their identifiers.
@@ -126,23 +124,8 @@ const lookupProjects = (
   identifiers: ReadonlyArray<string>
 ): Project[] =>
   identifiers
-    .filter(id => Object.prototype.hasOwnProperty.call(projects, id))
-    .map(id => projects[id]);
-
-/**
- * Lookup a single project.
- *
- * @param projects Known projects
- * @param identifier The project identifier to look for
- * @returns The project with `identifier` or `null`
- */
-const lookupProject = (
-  projects: ProjectMap,
-  identifier: string
-): Project | null =>
-  Object.prototype.hasOwnProperty.call(projects, identifier)
-    ? projects[identifier]
-    : null;
+    .map((id) => projects.get(id))
+    .filter((p): p is Project => p !== undefined);
 
 /**
  * Whether the project matches all terms.
@@ -159,7 +142,7 @@ const projectMatchesAllTerms = (
   terms: ReadonlyArray<string>
 ): boolean =>
   terms.every(
-    term => project.name.includes(term) || project.path.includes(term)
+    (term) => project.name.includes(term) || project.path.includes(term)
   );
 
 /**
@@ -173,7 +156,7 @@ const findMatchingIds = (
   projects: ReadonlyArray<Project>,
   terms: ReadonlyArray<string>
 ): string[] =>
-  projects.filter(p => projectMatchesAllTerms(p, terms)).map(p => p.id);
+  projects.filter((p) => projectMatchesAllTerms(p, terms)).map((p) => p.id);
 
 /**
  * Launch IDEA or show an error notification on failure.
@@ -182,13 +165,13 @@ const findMatchingIds = (
  * @param files Files to launch IDEA with
  */
 const launchIDEAInShell = (
-  idea: imports.gi.Gio.DesktopAppInfo,
-  files?: imports.gi.Gio.File[]
+  idea: Gio.DesktopAppInfo,
+  files?: Gio.File[]
 ): void => {
   try {
     idea.launch(files || [], null);
   } catch (err) {
-    imports.ui.main.notifyError("Failed to launch IntelliJ IDEA", err.message);
+    Main.notifyError("Failed to launch IntelliJ IDEA", err.message);
   }
 };
 
@@ -198,24 +181,24 @@ const launchIDEAInShell = (
  * @param idea The IDEA app info
  * @returns A function with creates result metadata for a given project.
  */
-const resultMetaForProject = (idea: imports.gi.Gio.DesktopAppInfo) => (
+const resultMetaForProject = (idea: Gio.DesktopAppInfo) => (
   project: Project
 ): ResultMeta => ({
   id: project.id,
   name: project.name,
   description: project.path,
-  createIcon: (size): imports.gi.St.Icon | null => {
+  createIcon: (size): St.Icon | null => {
     const gicon = idea.get_icon();
     if (gicon) {
       return new St.Icon({
         gicon,
         // eslint-disable-next-line @typescript-eslint/camelcase
-        icon_size: size
+        icon_size: size,
       });
     } else {
       return null;
     }
-  }
+  },
 });
 
 /**
@@ -234,55 +217,150 @@ const resultMetaForProject = (idea: imports.gi.Gio.DesktopAppInfo) => (
  */
 const createProvider = (
   projects: ProjectMap,
-  idea: imports.gi.Gio.DesktopAppInfo
+  idea: Gio.DesktopAppInfo
 ): SearchProvider => ({
   id: Self.uuid,
   isRemoteProvider: false,
   canLaunchSearch: true,
   appInfo: idea,
   getInitialResultSet: (terms, callback): void =>
-    callback(findMatchingIds(Object.values(projects), terms)),
+    callback(findMatchingIds([...projects.values()], terms)),
   getSubsearchResultSet: (current, terms, callback): void =>
     callback(findMatchingIds(lookupProjects(projects, current), terms)),
   getResultMetas: (ids, callback): void =>
     callback(lookupProjects(projects, ids).map(resultMetaForProject(idea))),
   launchSearch: (): void => launchIDEAInShell(idea),
   activateResult: (id: string): void => {
-    const project = lookupProject(projects, id);
+    const project = projects.get(id);
     if (project) {
       launchIDEAInShell(idea, [Gio.File.new_for_path(project.abspath)]);
     }
   },
-  filterResults: (results, max): string[] => results.slice(0, max)
+  filterResults: (results, max): string[] => results.slice(0, max),
 });
 
+interface HelperSuccessResult {
+  readonly kind: "success";
+  /**
+   * Discovered projects
+   */
+  readonly projects: [
+    // Note: Do not use the Project type, lest we change it accidentally and
+    // thus break deserialization.
+    {
+      /**
+       * The project identifier.
+       */
+      readonly id: string;
+
+      /**
+       * The project name.
+       */
+      readonly name: string;
+
+      /**
+       * The readable path, e.g. ~ instead of /home/…
+       */
+      readonly path: string;
+
+      /**
+       * The absolute path to the project.
+       */
+      readonly abspath: string;
+    }
+  ];
+}
+
+interface HelperErrorResult {
+  readonly kind: "error";
+
+  /**
+   * A human readable error message.
+   */
+  readonly message: string;
+}
+
 /**
- * Find all recent projects.
+ * The output of our helper;  keep in sync with what the helper really prints
+ */
+type HelperResult = HelperSuccessResult | HelperErrorResult;
+
+/**
+ * Run the recent projects helper.
  *
  * @param extensionDirectory The directory of this extension
- * @returns A promise with all recent IDEA projects.
+ * @returns The output of our Python helper
  */
-const recentProjects = (
-  extensionDirectory: imports.gi.Gio.File
-): Promise<ProjectMap> => {
+const runRecentProjectsHelper = (
+  extensionDirectory: Gio.File
+): Promise<unknown> => {
   const helper = extensionDirectory.get_child("find-projects.py").get_path();
   if (!helper) {
     return Promise.reject(new Error("Helper find-projects.py doesn't exist!"));
   } else {
     l(`Running Python helper ${helper} to discover IntelliJ IDEA projects`);
-    return execCommand(["python3", helper]).then(output => JSON.parse(output));
+    return execCommand(["python3", helper]).then((output) =>
+      JSON.parse(output)
+    );
   }
 };
 
-type RegisteredProvider = "unregistered" | "registering" | SearchProvider;
+class RecentProjectsError extends Error {
+  constructor(message: string) {
+    super(`Failed to get recent projects: ${message}`);
+    // eslint-disable-next-line immutable/no-this, immutable/no-mutation
+    this.name = "RecentProjectsError";
+  }
+}
 
 /**
- * The registered provider if any.
- *
- * Only used for correctly deregistering, and to prevent registering it twice.
+ * The
+ * @param o The object to test
  */
-// eslint-disable-next-line immutable/no-let
-let registeredProvider: RegisteredProvider = "unregistered";
+const unsafeIsHelperResult = (o: unknown): o is HelperResult => {
+  if (!o || typeof o !== "object") {
+    return false;
+  }
+
+  const kind = (o as { kind?: unknown }).kind;
+  if (!kind || typeof kind !== "string") {
+    return false;
+  }
+  const message = (o as { message?: unknown }).message;
+  const projects = (o as { projects?: unknown }).projects;
+
+  switch (kind) {
+    case "success":
+      return Array.isArray(projects);
+    case "error":
+      return typeof message === "string";
+    default:
+      return false;
+  }
+};
+
+/**
+ * Get all recent IDEA projects.
+ *
+ * @param extensionDirectory The directory of this extension
+ * @returns A promise with all recent IDEA projects.
+ */
+const recentProjects = (extensionDirectory: Gio.File): Promise<ProjectMap> =>
+  runRecentProjectsHelper(extensionDirectory).then((output) => {
+    if (!unsafeIsHelperResult(output)) {
+      throw new RecentProjectsError(
+        `Received invalid output from helper: ${JSON.stringify(output)}`
+      );
+    }
+    switch (output.kind) {
+      case "error":
+        throw new RecentProjectsError(output.message);
+      case "success":
+        return new Map(output.projects.map((p) => [p.id, p]));
+    }
+  });
+
+type RegisteredProvider = "unregistered" | "registering" | SearchProvider;
 
 /**
  * Initialize this extension immediately after loading.
@@ -290,64 +368,58 @@ let registeredProvider: RegisteredProvider = "unregistered";
  * Doesn't do anything for this extension.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-function,@typescript-eslint/no-unused-vars
-function init(): void {}
+function init(): ExtensionState {
+  // eslint-disable-next-line immutable/no-let
+  let registeredProvider: RegisteredProvider = "unregistered";
 
-/**
- * Enable this extension.
- *
- * Registers the search provider if not already registered.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function enable(): void {
-  if (registeredProvider === "unregistered") {
-    l(`enabling version ${Self.metadata.version}`);
-    const idea = findIDEA();
-    if (idea) {
-      registeredProvider = "registering";
-      recentProjects(Self.dir).then(
-        projects => {
-          if (registeredProvider === "registering") {
-            // If the user hasn't disabled the extension meanwhile create the
-            // search provider and registered it, both in our global variable
-            // and for gnome shell.
-            registeredProvider = createProvider(projects, idea);
-            Main.overview.viewSelector._searchResults._registerProvider(
-              registeredProvider
-            );
-          }
-        },
-        error => {
-          // If the the user hasn't disabled the extension meanwhile show an
-          // error message.
-          if (registeredProvider === "registering") {
-            Main.notifyError("Failed to find recent projects", error.message);
-          }
+  return {
+    enable: (): void => {
+      if (registeredProvider === "unregistered") {
+        l(`enabling version ${Self.metadata.version}`);
+        const idea = findIDEA();
+        if (idea) {
+          registeredProvider = "registering";
+          recentProjects(Self.dir)
+            .then((projects) => {
+              if (registeredProvider === "registering") {
+                // If the user hasn't disabled the extension meanwhile create the
+                // search provider and registered it, both in our global variable
+                // and for gnome shell.
+                registeredProvider = createProvider(projects, idea);
+                Main.overview.viewSelector._searchResults._registerProvider(
+                  registeredProvider
+                );
+              }
+            })
+            .catch((error) => {
+              // If the the user hasn't disabled the extension meanwhile show an
+              // error message.
+              if (registeredProvider === "registering") {
+                Main.notifyError(
+                  "Failed to find recent projects",
+                  error.message
+                );
+              }
+            });
+        } else {
+          Main.notifyError(
+            "IntelliJ IDEA not found",
+            "Consider reporting on https://github.com/lunaryorn/gnome-intellij-idea-search-provider/issues/2"
+          );
         }
-      );
-    } else {
-      Main.notifyError(
-        "IntelliJ IDEA not found",
-        "Consider reporting on https://github.com/lunaryorn/gnome-intellij-idea-search-provider/issues/2"
-      );
-    }
-  }
-}
-
-/**
- * Disable this extension.
- *
- * Unregisters the search provider if registered.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function disable(): void {
-  if (typeof registeredProvider !== "string") {
-    // Remove the provider if it was registered
-    l(`Disabling ${Self.metadata.version}`);
-    Main.overview.viewSelector._searchResults._unregisterProvider(
-      registeredProvider
-    );
-  }
-  // In any case mark the provider as unregistered, so that we can register it
-  // again when the user reenables the extension.
-  registeredProvider = "unregistered";
+      }
+    },
+    disable: (): void => {
+      if (typeof registeredProvider !== "string") {
+        // Remove the provider if it was registered
+        l(`Disabling ${Self.metadata.version}`);
+        Main.overview.viewSelector._searchResults._unregisterProvider(
+          registeredProvider
+        );
+      }
+      // In any case mark the provider as unregistered, so that we can register it
+      // again when the user reenables the extension.
+      registeredProvider = "unregistered";
+    },
+  };
 }

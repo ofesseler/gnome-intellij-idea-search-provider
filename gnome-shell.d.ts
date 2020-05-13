@@ -1,4 +1,4 @@
-// Copyright 2019 Sebastian Wiesner <sebastian@swsnr.de>
+// Copyright Sebastian Wiesner <sebastian@swsnr.de>
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -160,6 +160,12 @@ declare interface ExtensionObject {
   readonly uuid: string;
   readonly dir: imports.gi.Gio.File;
   readonly path: string;
+}
+
+declare interface ExtensionState {
+  enable(): void;
+
+  disable(): void;
 }
 
 declare namespace imports {
