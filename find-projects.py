@@ -17,6 +17,7 @@
 import xml.etree.ElementTree as etree
 import json
 from pathlib import Path
+import logging
 
 
 def find_latest_recent_projects_file():
@@ -24,11 +25,11 @@ def find_latest_recent_projects_file():
     Find the `recentProjects.xml` file of the most recent IDEA version.
     """
     candidates = sorted(
-        Path.home().glob('.IntelliJIdea*'),
+        Path.home().glob('.PyCharm*'),
         key=lambda p: p.name,
         reverse=True)
     if candidates:
-        return candidates[0] / 'config' / 'options' / 'recentProjects.xml'
+        return candidates[0] / 'config' / 'options' / 'recentProjectDirectories.xml'
     else:
         return None
 

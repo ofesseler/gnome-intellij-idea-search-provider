@@ -71,7 +71,9 @@ const findIDEA = (): imports.gi.Gio.DesktopAppInfo | null => {
     // Snap installation
     "intellij-idea-ultimate_intellij-idea-ultimate.desktop",
     // Flatpak installation
-    "com.jetbrains.IntelliJ-IDEA-Ultimate.desktop"
+    "com.jetbrains.IntelliJ-IDEA-Ultimate.desktop",
+    // Snap Pycharm Professional
+    "pycharm-professional_pycharm-professional.desktop"
   ];
   for (const desktopId of candidates) {
     const app = Gio.DesktopAppInfo.new(desktopId);
